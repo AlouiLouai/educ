@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
@@ -9,17 +9,28 @@ import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
 import { setCookie } from "../components/utils";
 
-export default function HomePage() {
-  const router = useRouter();
+function SearchParamsHandler({
+  onAuthParam,
+}: {
+  onAuthParam: (value: "student" | "teacher" | null) => void;
+}) {
   const searchParams = useSearchParams();
-  const [authModal, setAuthModal] = useState<"student" | "teacher" | null>(null);
 
   useEffect(() => {
     const auth = searchParams.get("auth");
     if (auth === "student" || auth === "teacher") {
-      setAuthModal(auth);
+      onAuthParam(auth);
+    } else {
+      onAuthParam(null);
     }
-  }, [searchParams]);
+  }, [searchParams, onAuthParam]);
+
+  return null;
+}
+
+export default function HomePage() {
+  const router = useRouter();
+  const [authModal, setAuthModal] = useState<"student" | "teacher" | null>(null);
 
   const openAuthModal = (type: "student" | "teacher") => {
     setAuthModal(type);
@@ -41,6 +52,9 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col">
+      <Suspense fallback={null}>
+        <SearchParamsHandler onAuthParam={setAuthModal} />
+      </Suspense>
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="container relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">

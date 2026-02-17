@@ -12,7 +12,7 @@ import { setCookie } from "../components/utils";
 function SearchParamsHandler({
   onAuthParam,
 }: {
-  onAuthParam: (value: "student" | "teacher" | null) => void;
+  onAuthParam: (value: "student" | "teacher") => void;
 }) {
   const searchParams = useSearchParams();
 
@@ -20,8 +20,6 @@ function SearchParamsHandler({
     const auth = searchParams.get("auth");
     if (auth === "student" || auth === "teacher") {
       onAuthParam(auth);
-    } else {
-      onAuthParam(null);
     }
   }, [searchParams, onAuthParam]);
 
@@ -30,30 +28,30 @@ function SearchParamsHandler({
 
 export default function HomePage() {
   const router = useRouter();
-  const [authModal, setAuthModal] = useState<"student" | "teacher" | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
 
   const openAuthModal = (type: "student" | "teacher") => {
-    setAuthModal(type);
+    setAuthRole(type);
+    setAuthOpen(true);
   };
 
-  const connectAsStudent = () => {
+  const handleAuth = (role: "student" | "teacher", _mode: "signin" | "signup") => {
     setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", "student");
-    setAuthModal(null);
-    router.push("/student");
-  };
-
-  const connectAsTeacher = () => {
-    setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", "teacher");
-    setAuthModal(null);
-    router.push("/teacher");
+    setCookie("edudocs_role", role);
+    setAuthOpen(false);
+    router.push(role === "student" ? "/student" : "/teacher");
   };
 
   return (
     <div className="flex flex-col">
       <Suspense fallback={null}>
-        <SearchParamsHandler onAuthParam={setAuthModal} />
+        <SearchParamsHandler
+          onAuthParam={(role) => {
+            setAuthRole(role);
+            setAuthOpen(true);
+          }}
+        />
       </Suspense>
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 lg:py-32">
@@ -246,14 +244,13 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {authModal && (
-        <AuthModal
-          open={Boolean(authModal)}
-          onOpenChange={(open) => setAuthModal(open ? authModal : null)}
-          role={authModal}
-          onConnect={authModal === "student" ? connectAsStudent : connectAsTeacher}
-        />
-      )}
+      <AuthModal
+        open={authOpen}
+        onOpenChange={setAuthOpen}
+        role={authRole}
+        onRoleChange={setAuthRole}
+        onConnect={(role, mode) => handleAuth(role, mode)}
+      />
     </div>
   );
 }

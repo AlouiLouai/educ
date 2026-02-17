@@ -11,11 +11,8 @@ export default function SiteHeader() {
           <span className="text-ink">Market</span>
         </Link>
         <div className="flex items-center gap-4">
-          <Link className={cn(buttonVariants({ variant: "ghost", size: "sm" }))} href="/auth/student">
-            Parent / Élève
-          </Link>
-          <Link className={cn(buttonVariants({ variant: "primary", size: "sm" }))} href="/auth/teacher">
-            Enseignant
+          <Link className={cn(buttonVariants({ variant: "primary", size: "sm" }))} href="/?auth=student">
+            Se connecter / S&apos;inscrire
           </Link>
         </div>
       </div>

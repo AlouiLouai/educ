@@ -2,6 +2,7 @@ import "./globals.css";
 import type { ReactNode } from "react";
 import SiteHeader from "../components/site-header";
 import SiteFooter from "../components/site-footer";
+import { logSupabaseConfig } from "../lib/supabase/check";
 
 export const metadata = {
   title: "EduDocs Market — Documents enseignants pour familles",
@@ -10,6 +11,7 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  logSupabaseConfig();
   return (
     <html lang="fr">
       <body>

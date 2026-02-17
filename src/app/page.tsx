@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -9,27 +9,22 @@ import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
 import { setCookie } from "../components/utils";
 
-function SearchParamsHandler({
-  onAuthParam,
-}: {
-  onAuthParam: (value: "student" | "teacher") => void;
-}) {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const auth = searchParams.get("auth");
-    if (auth === "student" || auth === "teacher") {
-      onAuthParam(auth);
-    }
-  }, [searchParams, onAuthParam]);
-
-  return null;
-}
-
 export default function HomePage() {
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
   const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
+      if (detail?.role === "student" || detail?.role === "teacher") {
+        setAuthRole(detail.role);
+      }
+      setAuthOpen(true);
+    };
+    window.addEventListener("auth:open", handler);
+    return () => window.removeEventListener("auth:open", handler);
+  }, []);
 
   const openAuthModal = (type: "student" | "teacher") => {
     setAuthRole(type);
@@ -43,16 +38,12 @@ export default function HomePage() {
     router.push(role === "student" ? "/student" : "/teacher");
   };
 
+  const handleAuthOpenChange = (open: boolean) => {
+    setAuthOpen(open);
+  };
+
   return (
     <div className="flex flex-col">
-      <Suspense fallback={null}>
-        <SearchParamsHandler
-          onAuthParam={(role) => {
-            setAuthRole(role);
-            setAuthOpen(true);
-          }}
-        />
-      </Suspense>
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="container relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
@@ -244,13 +235,15 @@ export default function HomePage() {
         </Card>
       </section>
 
-      <AuthModal
-        open={authOpen}
-        onOpenChange={setAuthOpen}
-        role={authRole}
-        onRoleChange={setAuthRole}
-        onConnect={(role, mode) => handleAuth(role, mode)}
-      />
+      {authOpen && (
+        <AuthModal
+          open={authOpen}
+          onOpenChange={handleAuthOpenChange}
+          role={authRole}
+          onRoleChange={setAuthRole}
+          onConnect={(role, mode) => handleAuth(role, mode)}
+        />
+      )}
     </div>
   );
 }

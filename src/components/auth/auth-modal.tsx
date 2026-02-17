@@ -3,14 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "../ui/dialog";
 import { cn } from "../utils";
 
 type AuthRole = "student" | "teacher";
@@ -27,6 +20,47 @@ const authCopy: Record<AuthRole, { title: string; description: string }> = {
   },
 };
 
+function GoogleButton({
+  onClick,
+  disabled,
+  label,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <Button
+      type="button"
+      className="w-full gap-3 rounded-full bg-white text-foreground shadow-[0_10px_30px_-20px_rgba(15,23,42,0.5)] ring-1 ring-black/10 hover:bg-white active:scale-[0.98]"
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white">
+        <svg viewBox="0 0 48 48" className="h-5 w-5" aria-hidden="true">
+          <path
+            fill="#EA4335"
+            d="M24 9.5c3.1 0 5.9 1.1 8 3l5.9-5.9C34.3 3 29.5 1 24 1 14.6 1 6.6 6.2 2.7 13.7l6.9 5.4C11.4 13.1 17.2 9.5 24 9.5z"
+          />
+          <path
+            fill="#4285F4"
+            d="M46.1 24.6c0-1.5-.1-2.6-.4-3.8H24v7.2h12.6c-.3 2-1.9 5-5.1 7l7.8 6c4.6-4.2 6.8-10.3 6.8-16.4z"
+          />
+          <path
+            fill="#34A853"
+            d="M9.6 28.7c-1-2-1.6-4.3-1.6-6.7s.6-4.7 1.6-6.7l-6.9-5.4C1 12.6 0 17.2 0 22s1 9.4 2.7 12.1l6.9-5.4z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M24 46c5.5 0 10.2-1.8 13.6-4.9l-7.8-6c-2.2 1.5-5.1 2.5-5.8 2.5-6.8 0-12.6-3.6-15.4-8.6l-6.9 5.4C6.6 41.8 14.6 46 24 46z"
+          />
+        </svg>
+      </span>
+      {label}
+    </Button>
+  );
+}
+
 interface AuthModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -42,12 +76,13 @@ export default function AuthModal({
   onRoleChange,
   onConnect,
 }: AuthModalProps) {
-  const copy = authCopy[role];
   const [mode, setMode] = useState<AuthMode>("signin");
+  const [roleTouched, setRoleTouched] = useState(false);
 
   useEffect(() => {
     if (!open) {
       setMode("signin");
+      setRoleTouched(false);
     }
   }, [open]);
 
@@ -55,17 +90,13 @@ export default function AuthModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{mode === "signin" ? "Se connecter" : "Créer un compte"}</DialogTitle>
-          <DialogDescription>
-            {mode === "signin"
-              ? "Accédez à votre espace en quelques secondes."
-              : "Créez votre compte et commencez tout de suite."}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-3xl border-0 bg-transparent p-0 shadow-none">
+        <DialogTitle className="sr-only">Authentification</DialogTitle>
+        <DialogDescription className="sr-only">
+          Connexion ou création de compte avec Google.
+        </DialogDescription>
         <div className="mt-2">
-          <div className="relative overflow-hidden rounded-3xl border border-black/10 bg-white/90 shadow-[0_30px_80px_-40px_rgba(15,23,42,0.45)] backdrop-blur">
+          <div className="relative overflow-hidden rounded-3xl border border-black/10 bg-white/95">
             <div className="grid gap-0 sm:grid-cols-2">
               <div className="block sm:hidden">
                 <div className="rounded-b-3xl bg-gradient-to-br from-[#1c2fb8] via-[#2f55ff] to-[#2bb4f5] px-6 py-8 text-center text-white">
@@ -87,7 +118,7 @@ export default function AuthModal({
                 </div>
               </div>
 
-              <div className="relative min-h-[460px] p-6 sm:p-10">
+              <div className="relative flex min-h-[460px] items-center p-6 sm:p-10">
                 <AnimatePresence mode="wait">
                   {isSignup ? (
                     <motion.div
@@ -97,73 +128,76 @@ export default function AuthModal({
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.25 }}
                     >
-                      <h3 className="text-2xl font-semibold">Créer un compte</h3>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        Rejoignez EduDocs en moins d&apos;une minute.
-                      </p>
-                      <div className="mt-4 flex items-center gap-2">
-                        {["G", "f", "in"].map((label) => (
-                          <button
-                            key={label}
-                            type="button"
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-xs font-semibold text-foreground hover:border-black/20"
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-6 space-y-3">
-                        <input
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#2f55ff]"
-                          placeholder="Nom complet"
-                        />
-                        <input
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#2f55ff]"
-                          placeholder="Email"
-                          type="email"
-                        />
-                        <input
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#2f55ff]"
-                          placeholder="Mot de passe"
-                          type="password"
-                        />
-                      </div>
-                      <div className="mt-5 space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Choisissez votre profil</p>
-                        <div className="inline-flex flex-wrap gap-2">
+                      <div className="mx-auto w-full max-w-sm text-center">
+                        <h3 className="text-2xl font-semibold">Créer un compte</h3>
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Rejoignez EduDocs en moins d&apos;une minute.
+                        </p>
+                      <div className="mt-6 rounded-2xl border border-black/10 bg-white/80 p-4 text-left shadow-[0_12px_30px_-24px_rgba(15,23,42,0.6)]">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                          Choisissez votre profil
+                        </p>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Cela personnalise votre accès aux contenus et aux outils.
+                        </p>
+                        <div
+                          className={cn(
+                            "mt-3 grid gap-2 sm:grid-cols-2",
+                            !roleTouched && "ring-1 ring-amber-400/60 ring-offset-2 ring-offset-white"
+                          )}
+                        >
                           {(["student", "teacher"] as const).map((value) => {
                             const selected = role === value;
                             return (
                               <button
                                 key={value}
                                 type="button"
-                                onClick={() => onRoleChange(value)}
+                                onClick={() => {
+                                  onRoleChange(value);
+                                  setRoleTouched(true);
+                                }}
                                 className={cn(
-                                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                                  "flex items-center justify-between rounded-2xl border px-4 py-3 text-sm font-semibold transition",
                                   selected
                                     ? "border-[#2f55ff]/60 bg-[#2f55ff]/10 text-[#2f55ff]"
                                     : "border-black/10 text-foreground hover:border-black/20"
                                 )}
                               >
-                                {authCopy[value].title}
+                                <span>{authCopy[value].title}</span>
+                                <span
+                                  className={cn(
+                                    "flex h-6 w-6 items-center justify-center rounded-full border text-[10px] font-bold",
+                                    selected
+                                      ? "border-[#2f55ff]/60 bg-[#2f55ff]/10 text-[#2f55ff]"
+                                      : "border-black/10 text-muted-foreground"
+                                  )}
+                                >
+                                  {selected ? "✓" : "•"}
+                                </span>
                               </button>
                             );
                           })}
                         </div>
+                        {!roleTouched && (
+                          <p className="mt-3 text-xs text-amber-600">
+                            Sélectionnez votre profil (obligatoire) pour continuer.
+                          </p>
+                        )}
                       </div>
-                      <Button
-                        type="button"
-                        className="mt-6 w-full active:scale-[0.98]"
-                        onClick={() => onConnect(role, "signup")}
-                      >
-                        Créer mon compte
-                      </Button>
+                      <div className="mt-6">
+                        <GoogleButton
+                          onClick={() => onConnect(role, "signup")}
+                          disabled={!roleTouched}
+                          label="Continuer avec Google"
+                        />
+                      </div>
+                      </div>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
               </div>
 
-              <div className="relative min-h-[460px] p-6 sm:p-10">
+              <div className="relative flex min-h-[460px] items-center p-6 sm:p-10">
                 <AnimatePresence mode="wait">
                   {!isSignup ? (
                     <motion.div
@@ -173,68 +207,18 @@ export default function AuthModal({
                       exit={{ opacity: 0, y: -8 }}
                       transition={{ duration: 0.25 }}
                     >
-                      <h3 className="text-2xl font-semibold">Se connecter</h3>
+                      <div className="w-full">
+                        <h3 className="text-2xl font-semibold">Se connecter</h3>
                       <p className="mt-2 text-sm text-muted-foreground">
                         Utilisez vos identifiants pour accéder à votre espace.
                       </p>
-                      <div className="mt-4 flex items-center gap-2">
-                        {["G", "f", "in"].map((label) => (
-                          <button
-                            key={label}
-                            type="button"
-                            className="flex h-9 w-9 items-center justify-center rounded-full border border-black/10 text-xs font-semibold text-foreground hover:border-black/20"
-                          >
-                            {label}
-                          </button>
-                        ))}
+                      <div className="mt-6">
+                        <GoogleButton onClick={() => onConnect(role, "signin")} label="Continuer avec Google" />
                       </div>
-                      <div className="mt-6 space-y-3">
-                        <input
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#2f55ff]"
-                          placeholder="Email"
-                          type="email"
-                        />
-                        <input
-                          className="w-full rounded-2xl border border-black/10 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#2f55ff]"
-                          placeholder="Mot de passe"
-                          type="password"
-                        />
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Le profil est requis uniquement à l&apos;inscription pour personnaliser votre espace.
+                      </p>
                       </div>
-                      <div className="mt-4 text-xs text-right text-muted-foreground">
-                        <button type="button" className="font-semibold text-[#2f55ff]">
-                          Mot de passe oublié ?
-                        </button>
-                      </div>
-                      <div className="mt-5 space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">Choisissez votre profil</p>
-                        <div className="inline-flex flex-wrap gap-2">
-                          {(["student", "teacher"] as const).map((value) => {
-                            const selected = role === value;
-                            return (
-                              <button
-                                key={value}
-                                type="button"
-                                onClick={() => onRoleChange(value)}
-                                className={cn(
-                                  "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-                                  selected
-                                    ? "border-[#2f55ff]/60 bg-[#2f55ff]/10 text-[#2f55ff]"
-                                    : "border-black/10 text-foreground hover:border-black/20"
-                                )}
-                              >
-                                {authCopy[value].title}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        className="mt-6 w-full active:scale-[0.98]"
-                        onClick={() => onConnect(role, "signin")}
-                      >
-                        Se connecter
-                      </Button>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>

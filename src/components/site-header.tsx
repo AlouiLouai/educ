@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { buttonVariants } from "./ui/button";
 import { cn } from "./utils";
@@ -11,12 +13,17 @@ export default function SiteHeader() {
           <span className="text-ink">Market</span>
         </Link>
         <div className="flex items-center gap-4">
-          <Link className={cn(buttonVariants({ variant: "ghost", size: "sm" }))} href="/auth/student">
-            Parent / Élève
-          </Link>
-          <Link className={cn(buttonVariants({ variant: "primary", size: "sm" }))} href="/auth/teacher">
-            Enseignant
-          </Link>
+          <button
+            type="button"
+            className={cn(buttonVariants({ variant: "primary", size: "sm" }))}
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("auth:open", { detail: { role: "student" } })
+              );
+            }}
+          >
+            Se connecter / S&apos;inscrire
+          </button>
         </div>
       </div>
     </header>

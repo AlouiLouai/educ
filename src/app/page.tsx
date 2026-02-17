@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
@@ -9,52 +9,41 @@ import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
 import { setCookie } from "../components/utils";
 
-function SearchParamsHandler({
-  onAuthParam,
-}: {
-  onAuthParam: (value: "student" | "teacher" | null) => void;
-}) {
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    const auth = searchParams.get("auth");
-    if (auth === "student" || auth === "teacher") {
-      onAuthParam(auth);
-    } else {
-      onAuthParam(null);
-    }
-  }, [searchParams, onAuthParam]);
-
-  return null;
-}
-
 export default function HomePage() {
   const router = useRouter();
-  const [authModal, setAuthModal] = useState<"student" | "teacher" | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
+      if (detail?.role === "student" || detail?.role === "teacher") {
+        setAuthRole(detail.role);
+      }
+      setAuthOpen(true);
+    };
+    window.addEventListener("auth:open", handler);
+    return () => window.removeEventListener("auth:open", handler);
+  }, []);
 
   const openAuthModal = (type: "student" | "teacher") => {
-    setAuthModal(type);
+    setAuthRole(type);
+    setAuthOpen(true);
   };
 
-  const connectAsStudent = () => {
+  const handleAuth = (role: "student" | "teacher", _mode: "signin" | "signup") => {
     setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", "student");
-    setAuthModal(null);
-    router.push("/student");
+    setCookie("edudocs_role", role);
+    setAuthOpen(false);
+    router.push(role === "student" ? "/student" : "/teacher");
   };
 
-  const connectAsTeacher = () => {
-    setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", "teacher");
-    setAuthModal(null);
-    router.push("/teacher");
+  const handleAuthOpenChange = (open: boolean) => {
+    setAuthOpen(open);
   };
 
   return (
     <div className="flex flex-col">
-      <Suspense fallback={null}>
-        <SearchParamsHandler onAuthParam={setAuthModal} />
-      </Suspense>
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="container relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
@@ -246,12 +235,13 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {authModal && (
+      {authOpen && (
         <AuthModal
-          open={Boolean(authModal)}
-          onOpenChange={(open) => setAuthModal(open ? authModal : null)}
-          role={authModal}
-          onConnect={authModal === "student" ? connectAsStudent : connectAsTeacher}
+          open={authOpen}
+          onOpenChange={handleAuthOpenChange}
+          role={authRole}
+          onRoleChange={setAuthRole}
+          onConnect={(role, mode) => handleAuth(role, mode)}
         />
       )}
     </div>

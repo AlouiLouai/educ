@@ -2,15 +2,27 @@
 
 import { useRouter } from "next/navigation";
 import AuthCard from "../../../components/auth/auth-card";
-import { setCookie } from "../../../components/utils";
+import { createClient } from "../../../lib/supabase/browser";
 
 export default function AdminAuthPage() {
   const router = useRouter();
 
-  const connect = () => {
-    setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", "admin");
-    router.push("/admin");
+  const connect = async () => {
+    const supabase = createClient();
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/admin")}&role=admin`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+
+    if (error) {
+      console.error("[auth] google sign-in failed", error.message);
+      return;
+    }
+
+    router.push("/");
   };
 
   return (

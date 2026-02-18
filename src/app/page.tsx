@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
-import { setCookie } from "../components/utils";
+import { createClient } from "../lib/supabase/browser";
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [authOpen, setAuthOpen] = useState(false);
   const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
 
@@ -26,16 +27,42 @@ export default function HomePage() {
     return () => window.removeEventListener("auth:open", handler);
   }, []);
 
+  useEffect(() => {
+    const auth = searchParams.get("auth");
+    if (auth === "student" || auth === "teacher") {
+      setAuthRole(auth);
+      setAuthOpen(true);
+    }
+  }, [searchParams]);
+
   const openAuthModal = (type: "student" | "teacher") => {
     setAuthRole(type);
     setAuthOpen(true);
   };
 
-  const handleAuth = (role: "student" | "teacher", _mode: "signin" | "signup") => {
-    setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", role);
+  const handleAuth = async (role: "student" | "teacher", _mode: "signin" | "signup") => {
+    const supabase = createClient();
+    const next = role === "student" ? "/student" : "/teacher";
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}`;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        // This is the key: it injects the role into user_metadata immediately
+        data: {
+          role: role,
+        },
+      },
+    });
+
+    if (error) {
+      console.error("[auth] google sign-in failed", error.message);
+      return;
+    }
+
     setAuthOpen(false);
-    router.push(role === "student" ? "/student" : "/teacher");
+    router.push("/");
   };
 
   const handleAuthOpenChange = (open: boolean) => {

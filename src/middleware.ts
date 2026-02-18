@@ -9,16 +9,19 @@ const roleRoutes: Record<string, string> = {
 };
 
 export async function middleware(request: NextRequest) {
-  const response = await updateSession(request);
+  const { response, supabase } = await updateSession(request);
   const { pathname } = request.nextUrl;
   const roleKey = Object.keys(roleRoutes).find((route) => pathname.startsWith(route));
   if (!roleKey) return response;
 
   const requiredRole = roleRoutes[roleKey];
-  const isAuthed = request.cookies.get("edudocs_auth")?.value === "1";
-  const role = request.cookies.get("edudocs_role")?.value;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const metaRole = (user?.user_metadata as { role?: string } | undefined)?.role;
+  const role = metaRole ?? request.cookies.get("edudocs_role")?.value;
 
-  if (!isAuthed || role !== requiredRole) {
+  if (!user || role !== requiredRole) {
     const url = request.nextUrl.clone();
     url.pathname = `/auth/${requiredRole}`;
     url.search = "";

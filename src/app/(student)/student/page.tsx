@@ -25,9 +25,12 @@ export default async function StudentDashboard({ searchParams }: PageProps) {
     return true;
   });
 
-  const gradeOptions = params.level === "Primaire" ? GRADES_PRIMARY : 
-                       params.level === "Secondaire" ? GRADES_SECONDARY : 
-                       [...GRADES_PRIMARY, ...GRADES_SECONDARY];
+  const rawGradeOptions = params.level === "Primaire" ? GRADES_PRIMARY : 
+                          params.level === "Secondaire" ? GRADES_SECONDARY : 
+                          [...GRADES_PRIMARY, ...GRADES_SECONDARY];
+  
+  // Deduplicate keys for React
+  const gradeOptions = Array.from(new Set(rawGradeOptions));
 
   return (
     <div className="container py-8 space-y-10">

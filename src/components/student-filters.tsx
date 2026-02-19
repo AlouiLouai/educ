@@ -2,10 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Badge } from "../ui/badge";
-import { Card, CardContent } from "../ui/card";
+import { Button } from "./ui/button";
 
 interface FilterProps {
   categories: string[];

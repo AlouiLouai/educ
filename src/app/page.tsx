@@ -18,21 +18,20 @@ export default function HomePage() {
   useEffect(() => {
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
-      if (detail?.role === "student" || detail?.role === "teacher") {
-        setAuthRole(detail.role);
-      }
+      const role = detail?.role === "student" || detail?.role === "teacher" ? detail.role : "student";
+      setAuthRole(role);
       setAuthOpen(true);
     };
     window.addEventListener("auth:open", handler);
-    return () => window.removeEventListener("auth:open", handler);
-  }, []);
 
-  useEffect(() => {
+    // Initial check for ?auth=
     const auth = searchParams.get("auth");
     if (auth === "student" || auth === "teacher") {
-      setAuthRole(auth);
+      setAuthRole(auth as "student" | "teacher");
       setAuthOpen(true);
     }
+
+    return () => window.removeEventListener("auth:open", handler);
   }, [searchParams]);
 
   const openAuthModal = (type: "student" | "teacher") => {
@@ -49,6 +48,9 @@ export default function HomePage() {
       provider: "google",
       options: {
         redirectTo,
+        queryParams: {
+          prompt: "select_account",
+        },
         // This is the key: it injects the role into user_metadata immediately
         data: {
           role: role,
@@ -62,7 +64,6 @@ export default function HomePage() {
     }
 
     setAuthOpen(false);
-    router.push("/");
   };
 
   const handleAuthOpenChange = (open: boolean) => {
@@ -262,15 +263,13 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {authOpen && (
-        <AuthModal
-          open={authOpen}
-          onOpenChange={handleAuthOpenChange}
-          role={authRole}
-          onRoleChange={setAuthRole}
-          onConnect={(role, mode) => handleAuth(role, mode)}
-        />
-      )}
+      <AuthModal
+        open={authOpen}
+        onOpenChange={handleAuthOpenChange}
+        role={authRole}
+        onRoleChange={setAuthRole}
+        onConnect={(role, mode) => handleAuth(role, mode)}
+      />
     </div>
   );
 }

@@ -52,8 +52,6 @@ begin
   )
   on conflict (id) do update
   set
-    first_name = coalesce(excluded.first_name, profiles.first_name),
-    last_name = coalesce(excluded.last_name, profiles.last_name),
     email = coalesce(excluded.email, profiles.email),
     -- We still don't update role on 'UPDATE' for extra safety
     avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url),

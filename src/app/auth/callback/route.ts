@@ -1,5 +1,6 @@
 import { createClient } from "../../../lib/supabase/server";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 const ALLOWED_ROLES = ["student", "teacher"];
 
@@ -14,51 +15,57 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/", url.origin));
   }
 
+  const cookieStore = await cookies();
   const supabase = await createClient();
 
   // Exchange the code for a session
-  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: exchangeData, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
   if (exchangeError) {
     console.error("[auth] exchangeCodeForSession failed:", exchangeError.message);
     return NextResponse.redirect(new URL("/?error=auth_failed", url.origin));
   }
 
-  // Get the authenticated user
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
-
-  if (userError || !user) {
-    console.error("[auth] getUser failed:", userError?.message);
+  const user = exchangeData.user;
+  if (!user) {
+    console.error("[auth] no user after exchange");
     return NextResponse.redirect(new URL("/?error=user_not_found", url.origin));
   }
 
-  // 1. Determine the final role
-  // We prioritize existing role in metadata to prevent accidental role changes during sign-in
-  const existingRole = user.user_metadata?.role;
-  let finalRole = existingRole;
+  // 2. Determine and sync the final role
+  let finalRole = user.user_metadata?.role;
 
-  // 2. If no existing role, validate and set the requested role
-  if (!finalRole && requestedRole && ALLOWED_ROLES.includes(requestedRole)) {
-    finalRole = requestedRole;
-    const { error: updateError } = await supabase.auth.updateUser({
-      data: { role: finalRole },
-    });
-    
-    if (updateError) {
-      console.error("[auth] failed to update user role:", updateError.message);
+  // If a role was requested, we use it to ensure the user gets where they wanted.
+  if (requestedRole && ALLOWED_ROLES.includes(requestedRole)) {
+    // Update metadata if it's different or missing
+    if (finalRole !== requestedRole) {
+      await supabase.auth.updateUser({
+        data: { role: requestedRole },
+      });
+      finalRole = requestedRole;
     }
+  } 
+  
+  if (!finalRole) {
+    finalRole = "student";
+  }
+
+  // Double check the profile exists and has the correct role
+  // Since the SQL trigger only updates on INSERT for role, we might need a manual sync if the profile already existed
+  const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  if (profile && profile.role !== finalRole) {
+    await supabase.from("profiles").update({ role: finalRole }).eq("id", user.id);
   }
 
   // 3. Determine redirect path
-  let redirectPath = nextParam ?? "/";
+  // We prioritize the path corresponding to the FINAL role to avoid middleware conflicts
+  let redirectPath = "/";
+  if (finalRole === "student") redirectPath = "/student";
+  else if (finalRole === "teacher") redirectPath = "/teacher";
+  else if (finalRole === "admin") redirectPath = "/admin";
   
-  // If no explicit next param, redirect based on role
-  if (!nextParam && finalRole) {
-    if (finalRole === "student") redirectPath = "/student";
-    else if (finalRole === "teacher") redirectPath = "/teacher";
-    else if (finalRole === "admin") redirectPath = "/admin";
+  // If nextParam was provided and matches the role, use it (handles sub-paths)
+  if (nextParam && nextParam.startsWith(redirectPath)) {
+    redirectPath = nextParam;
   }
 
   const response = NextResponse.redirect(new URL(redirectPath, url.origin));

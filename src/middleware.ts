@@ -23,8 +23,8 @@ export async function middleware(request: NextRequest) {
 
   if (!user || role !== requiredRole) {
     const url = request.nextUrl.clone();
-    url.pathname = `/auth/${requiredRole}`;
-    url.search = "";
+    url.pathname = "/";
+    url.search = `?auth=${requiredRole}`;
     const redirect = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => {
       redirect.cookies.set(cookie);

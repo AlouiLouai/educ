@@ -18,11 +18,16 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  // Get role from multiple sources for maximum reliability during redirect bounces
   const appMeta = (user?.app_metadata as { role?: string; profile?: boolean } | undefined) ?? {};
-  const metaRole = (user?.user_metadata as { role?: string } | undefined)?.role;
-  const role = appMeta.role ?? metaRole ?? request.cookies.get("edudocs_role")?.value;
+  const userMeta = (user?.user_metadata as { role?: string } | undefined) ?? {};
+  const cookieRole = request.cookies.get("edudocs_role")?.value;
+  
+  const role = appMeta.role || userMeta.role || cookieRole;
   const hasProfile = appMeta.profile === true || request.cookies.get("edudocs_profile")?.value === "1";
 
+  // If we are on a protected route and don't have the user or right role, redirect to home
   if (!user || !hasProfile || role !== requiredRole) {
     const url = request.nextUrl.clone();
     url.pathname = "/";

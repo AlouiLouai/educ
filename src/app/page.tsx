@@ -63,8 +63,17 @@ export default function HomePage() {
   };
 
   const handleAuth = async (role: "student" | "teacher", mode: "signin" | "signup") => {
+    // 1. Client-side validation
+    const allowedRoles = ["student", "teacher"];
+    if (!allowedRoles.includes(role)) {
+      console.error("[auth] invalid role selected:", role);
+      return;
+    }
+
     const supabase = createClient();
     const next = role === "student" ? "/student" : "/teacher";
+    
+    // 2. Pass role as a query parameter in redirectTo
     const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}&mode=${mode}`;
 
     const { error } = await supabase.auth.signInWithOAuth({
@@ -74,8 +83,14 @@ export default function HomePage() {
         queryParams: {
           prompt: "select_account",
         },
-        // Only inject role if we are in signup mode
-        data: mode === "signup" ? { role, signup: "true" } : undefined,
+        // Only pass role in metadata if mode is signup
+        // This prevents the DB trigger from creating a profile if they just try to signin
+        data: mode === "signup" ? { 
+          role, 
+          signup: "true" 
+        } : {
+          signup: "false"
+        },
       },
     });
 

@@ -31,43 +31,54 @@ create or replace function public.handle_user_sync()
 returns trigger as $$
 declare
   chosen_role text;
+  is_signup text;
 begin
-  -- 1. Get the role and signup flag from metadata
+  -- 1. Extract metadata from Google OAuth / Auth data
   chosen_role := new.raw_user_meta_data->>'role';
-  -- We only create a profile on explicit signup
-  if new.raw_user_meta_data->>'signup' is distinct from 'true' then
-    -- If profile already exists, allow updates (avatar/email)
-    if not exists (select 1 from public.profiles where id = new.id) then
-      return new;
+  is_signup := new.raw_user_meta_data->>'signup';
+
+  -- 2. Logic: Create profile ONLY on explicit signup OR if it already exists (updates)
+  -- This prevents "Sign In" attempts for non-existent users from creating empty profiles.
+  if (is_signup = 'true') or (exists (select 1 from public.profiles where id = new.id)) then
+    
+    -- 3. VALIDATION: Ensure role is allowed
+    if chosen_role is null or chosen_role not in ('student', 'teacher', 'admin') then
+      -- If updating, try to preserve the existing role
+      select role into chosen_role from public.profiles where id = new.id;
+      -- COALESCE to provide a default if it's still null
+      chosen_role := coalesce(chosen_role, 'student');
     end if;
+
+    -- 4. Insert or Update the profile
+    insert into public.profiles (
+      id, 
+      first_name, 
+      last_name, 
+      email, 
+      role, 
+      avatar_url,
+      updated_at
+    )
+    values (
+      new.id,
+      coalesce(new.raw_user_meta_data->>'given_name', split_part(new.raw_user_meta_data->>'full_name', ' ', 1)),
+      coalesce(
+        new.raw_user_meta_data->>'family_name', 
+        substring(new.raw_user_meta_data->>'full_name' from position(' ' in new.raw_user_meta_data->>'full_name') + 1)
+      ),
+      new.email,
+      chosen_role,
+      new.raw_user_meta_data->>'avatar_url',
+      now()
+    )
+    on conflict (id) do update
+    set
+      email = coalesce(excluded.email, profiles.email),
+      avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url),
+      role = coalesce(excluded.role, profiles.role),
+      updated_at = now();
   end if;
 
-  -- 2. If no role is provided, DO NOT create a profile.
-  -- This allows the application to handle "Signin" for non-existent users correctly.
-  if chosen_role is null then
-    return new;
-  end if;
-
-  -- 3. VALIDATION: Only allow 'student' or 'teacher'. 
-  if chosen_role not in ('student', 'teacher') then
-    chosen_role := 'student';
-  end if;
-
-  insert into public.profiles (id, first_name, last_name, email, role, avatar_url)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'given_name', split_part(new.raw_user_meta_data->>'full_name', ' ', 1)),
-    coalesce(new.raw_user_meta_data->>'family_name', substring(new.raw_user_meta_data->>'full_name' from position(' ' in new.raw_user_meta_data->>'full_name') + 1)),
-    new.email,
-    chosen_role, -- Use the validated role
-    new.raw_user_meta_data->>'avatar_url'
-  )
-  on conflict (id) do update
-  set
-    email = coalesce(excluded.email, profiles.email),
-    -- We still don't update role on 'UPDATE' for extra safety
-    avatar_url = coalesce(excluded.avatar_url, profiles.avatar_url),
-    updated_at = now();
   return new;
 end;
 $$ language plpgsql security definer;

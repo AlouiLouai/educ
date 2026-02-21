@@ -25,7 +25,10 @@ export async function POST(request: Request) {
   if (user) {
     const admin = createAdminClient();
     
-    // 1. Delete the user from auth.users (cascade will handle public.profiles)
+    // 1. Explicitly delete the profile first to satisfy any FK constraints safely
+    await admin.from("profiles").delete().eq("id", user.id);
+
+    // 2. Delete the user from auth.users
     const { error } = await admin.auth.admin.deleteUser(user.id);
     
     if (error) {
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to delete account" }, { status: 500 });
     }
 
-    // 2. Sign out the current session
+    // 3. Sign out the current session
     await supabase.auth.signOut();
   }
 
@@ -41,11 +44,10 @@ export async function POST(request: Request) {
     status: 302,
   });
 
-  // 3. Clear all helper cookies
-  const clearOptions = { path: "/", maxAge: 0 };
+  // 4. Securely clear all helper cookies
+  const clearOptions = { path: "/", maxAge: 0, sameSite: "lax" as const };
   response.cookies.set("edudocs_role", "", clearOptions);
   response.cookies.set("edudocs_profile", "", clearOptions);
-  response.cookies.set("edudocs_auth", "", clearOptions);
 
   return response;
 }

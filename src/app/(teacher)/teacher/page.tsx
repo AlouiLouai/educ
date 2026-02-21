@@ -357,7 +357,7 @@ export default function TeacherDashboard() {
            <CardContent className="space-y-4">
              {[
                { user: "Parent #942", comment: "Excellent support pédagogique !", rating: 5 },
-               { user: "Élève Amine", comment: "Très clair, m'a beaucoup aidé.", rating: 5 },
+               { user: "Élève Amine", comment: "Très clair, m'a beaucoup helpé.", rating: 5 },
              ].map((review, i) => (
                <div key={i} className="flex gap-3 text-sm border-b border-black/5 pb-3 last:border-0 last:pb-0">
                  <div className="h-9 w-9 rounded-full bg-accent/10 flex items-center justify-center font-bold text-accent text-[10px]">

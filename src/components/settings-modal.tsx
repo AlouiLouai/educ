@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "./ui/button";
 import { useAuth } from "../hooks/use-auth";
 import { Trash2, User, Mail, ShieldCheck, Calendar } from "lucide-react";
+import Image from "next/image";
 
 interface SettingsModalProps {
   open: boolean;
@@ -11,20 +12,43 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, connectedUser } = useAuth();
 
   const registrationDate = user?.created_at 
     ? new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'Inconnue';
 
+  const displayName = connectedUser.displayName;
+  const userInitial = connectedUser.initial;
+  const fullName = connectedUser.fullName || "—";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[450px] overflow-hidden rounded-[24px]">
         <DialogHeader className="pb-4">
-          <DialogTitle className="text-xl">Mon Compte</DialogTitle>
-          <DialogDescription>
-            Informations personnelles et gestion de votre compte EduDocs.
-          </DialogDescription>
+          <div className="flex items-center gap-4">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-primary/20 bg-white shadow-sm">
+              {connectedUser.avatarUrl ? (
+                // Use native img to avoid Next/Image remote host constraints for Supabase storage.
+                <img
+                  src={connectedUser.avatarUrl}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20 text-xl font-bold text-primary">
+                  {userInitial}
+                </div>
+              )}
+            </div>
+            <div>
+              <DialogTitle className="text-xl">Mon Compte</DialogTitle>
+              <DialogDescription>
+                Gérez vos informations EduDocs.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
         
         <div className="grid gap-6 py-2">
@@ -37,7 +61,10 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-medium text-muted-foreground">Nom complet</span>
-                <span className="text-sm font-semibold">{profile?.first_name} {profile?.last_name}</span>
+                <span className="text-sm font-semibold flex items-center gap-1.5">
+                  <User className="h-3 w-3 opacity-50" />
+                  {fullName}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs font-medium text-muted-foreground">Email</span>

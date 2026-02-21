@@ -8,6 +8,20 @@ const nextConfig = {
         hostname: '*.googleusercontent.com',
         pathname: '**',
       },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
+        pathname: '**',
+      },
+    ],
+  },
+  experimental: {
+    webpackBuildWorker: true,
+    serverSourceMaps: false,
+    optimizePackageImports: [
+      "lucide-react",
+      "framer-motion",
+      "@radix-ui/react-dialog",
     ],
   },
 };

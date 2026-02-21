@@ -9,7 +9,7 @@ import { useAuth } from "../hooks/use-auth";
 import { SettingsModal } from "./settings-modal";
 
 export default function SiteHeader() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, connectedUser, loading, signOut } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -31,7 +31,9 @@ export default function SiteHeader() {
     );
   };
 
-  const userInitial = profile?.first_name?.[0] || user?.email?.[0]?.toUpperCase() || "U";
+  const displayName = connectedUser.displayName;
+  const secondaryName = connectedUser.fullName || "—";
+  const userInitial = connectedUser.initial;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-white/70 backdrop-blur-md supports-[backdrop-filter]:bg-white/40 dark:bg-black/70 dark:supports-[backdrop-filter]:bg-black/40">
@@ -48,12 +50,11 @@ export default function SiteHeader() {
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="group relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-black/10 bg-white transition-all hover:ring-2 hover:ring-primary/20 hover:scale-[1.02] active:scale-[0.98] shadow-sm z-10 dark:bg-black dark:border-white/10"
                 >
-                  {profile?.avatar_url ? (
-                    <Image 
-                      src={profile.avatar_url} 
-                      alt="User Avatar" 
-                      fill
-                      sizes="40px"
+                  {connectedUser.avatarUrl ? (
+                    // Use native img to avoid Next/Image remote host constraints for Supabase storage.
+                    <img
+                      src={connectedUser.avatarUrl}
+                      alt="User Avatar"
                       className="h-full w-full object-cover transition-transform group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
@@ -68,8 +69,13 @@ export default function SiteHeader() {
                   <div className="absolute right-0 mt-3 w-64 origin-top-right rounded-2xl border border-black/10 bg-white p-2 shadow-2xl ring-1 ring-black/5 z-50 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 dark:bg-neutral-900 dark:border-white/10">
                     <div className="flex items-center gap-3 px-3 py-3">
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-black/5">
-                        {profile?.avatar_url ? (
-                          <Image src={profile.avatar_url} alt="Avatar" fill sizes="40px" className="object-cover" />
+                        {connectedUser.avatarUrl ? (
+                          <img
+                            src={connectedUser.avatarUrl}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-primary/10 text-xs font-bold text-primary">
                             {userInitial}
@@ -78,9 +84,9 @@ export default function SiteHeader() {
                       </div>
                       <div className="flex flex-col truncate">
                         <p className="truncate text-sm font-semibold text-foreground">
-                          {profile?.first_name || 'Utilisateur'} {profile?.last_name || ''}
+                          {displayName}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                        <p className="truncate text-xs text-muted-foreground">{secondaryName}</p>
                       </div>
                     </div>
                     <div className="my-1 h-px bg-black/5 dark:bg-white/5" />

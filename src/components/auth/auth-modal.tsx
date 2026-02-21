@@ -67,6 +67,8 @@ interface AuthModalProps {
   role: AuthRole;
   onRoleChange: (role: AuthRole) => void;
   onConnect: (role: AuthRole, mode: AuthMode) => void;
+  mode: AuthMode;
+  onModeChange: (mode: AuthMode) => void;
 }
 
 export default function AuthModal({
@@ -75,13 +77,13 @@ export default function AuthModal({
   role,
   onRoleChange,
   onConnect,
+  mode,
+  onModeChange,
 }: AuthModalProps) {
-  const [mode, setMode] = useState<AuthMode>("signin");
   const [roleTouched, setRoleTouched] = useState(false);
 
   useEffect(() => {
     if (!open) {
-      setMode("signin");
       setRoleTouched(false);
     }
   }, [open]);
@@ -110,7 +112,7 @@ export default function AuthModal({
                   </p>
                   <button
                     type="button"
-                    onClick={() => setMode(isSignup ? "signin" : "signup")}
+                    onClick={() => onModeChange(isSignup ? "signin" : "signup")}
                     className="mt-5 rounded-full border border-white/40 px-5 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-white/10 active:scale-[0.98]"
                   >
                     {isSignup ? "Se connecter" : "S'inscrire"}
@@ -247,7 +249,7 @@ export default function AuthModal({
                 </p>
                 <button
                   type="button"
-                  onClick={() => setMode(isSignup ? "signin" : "signup")}
+                  onClick={() => onModeChange(isSignup ? "signin" : "signup")}
                   className="mt-6 rounded-full border border-white/40 px-5 py-2 text-xs font-semibold uppercase tracking-wide hover:bg-white/10 active:scale-[0.98]"
                 >
                   {isSignup ? "Se connecter" : "S'inscrire"}

@@ -32,11 +32,23 @@ returns trigger as $$
 declare
   chosen_role text;
 begin
-  -- 1. Get the role from the metadata
+  -- 1. Get the role and signup flag from metadata
   chosen_role := new.raw_user_meta_data->>'role';
+  -- We only create a profile on explicit signup
+  if new.raw_user_meta_data->>'signup' is distinct from 'true' then
+    -- If profile already exists, allow updates (avatar/email)
+    if not exists (select 1 from public.profiles where id = new.id) then
+      return new;
+    end if;
+  end if;
 
-  -- 2. VALIDATION: Only allow 'student' or 'teacher'. 
-  -- If it's 'admin' or something else, force it to 'student'.
+  -- 2. If no role is provided, DO NOT create a profile.
+  -- This allows the application to handle "Signin" for non-existent users correctly.
+  if chosen_role is null then
+    return new;
+  end if;
+
+  -- 3. VALIDATION: Only allow 'student' or 'teacher'. 
   if chosen_role not in ('student', 'teacher') then
     chosen_role := 'student';
   end if;

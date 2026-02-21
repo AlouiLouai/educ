@@ -18,10 +18,12 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const appMeta = (user?.app_metadata as { role?: string; profile?: boolean } | undefined) ?? {};
   const metaRole = (user?.user_metadata as { role?: string } | undefined)?.role;
-  const role = metaRole ?? request.cookies.get("edudocs_role")?.value;
+  const role = appMeta.role ?? metaRole ?? request.cookies.get("edudocs_role")?.value;
+  const hasProfile = appMeta.profile === true || request.cookies.get("edudocs_profile")?.value === "1";
 
-  if (!user || role !== requiredRole) {
+  if (!user || !hasProfile || role !== requiredRole) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     url.search = `?auth=${requiredRole}`;

@@ -14,12 +14,30 @@ export default function HomePage() {
   const searchParams = useSearchParams();
   const [authOpen, setAuthOpen] = useState(false);
   const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 
   useEffect(() => {
+    const info = searchParams.get("info");
+    if (info === "account_exists") {
+      alert("Vous avez déjà un compte. Veuillez vous connecter au lieu de vous inscrire.");
+      setAuthMode("signin");
+      setAuthOpen(true);
+      router.replace("/");
+    }
+
+    const error = searchParams.get("error");
+    if (error === "account_not_found") {
+      alert("Aucun compte trouvé avec cet e-mail. Veuillez d'abord vous inscrire.");
+      setAuthMode("signup");
+      setAuthOpen(true);
+      router.replace("/");
+    }
+
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
       const role = detail?.role === "student" || detail?.role === "teacher" ? detail.role : "student";
       setAuthRole(role);
+      setAuthMode("signin");
       setAuthOpen(true);
     };
     window.addEventListener("auth:open", handler);
@@ -28,6 +46,10 @@ export default function HomePage() {
     const auth = searchParams.get("auth");
     if (auth === "student" || auth === "teacher") {
       setAuthRole(auth as "student" | "teacher");
+      const modeParam = searchParams.get("mode");
+      if (modeParam === "signin" || modeParam === "signup") {
+        setAuthMode(modeParam);
+      }
       setAuthOpen(true);
     }
 
@@ -36,13 +58,14 @@ export default function HomePage() {
 
   const openAuthModal = (type: "student" | "teacher") => {
     setAuthRole(type);
+    setAuthMode("signin");
     setAuthOpen(true);
   };
 
-  const handleAuth = async (role: "student" | "teacher", _mode: "signin" | "signup") => {
+  const handleAuth = async (role: "student" | "teacher", mode: "signin" | "signup") => {
     const supabase = createClient();
     const next = role === "student" ? "/student" : "/teacher";
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}`;
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}&mode=${mode}`;
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -51,10 +74,8 @@ export default function HomePage() {
         queryParams: {
           prompt: "select_account",
         },
-        // This is the key: it injects the role into user_metadata immediately
-        data: {
-          role: role,
-        },
+        // Only inject role if we are in signup mode
+        data: mode === "signup" ? { role, signup: "true" } : undefined,
       },
     });
 
@@ -68,6 +89,9 @@ export default function HomePage() {
 
   const handleAuthOpenChange = (open: boolean) => {
     setAuthOpen(open);
+    if (!open) {
+      setAuthMode("signin");
+    }
   };
 
   return (
@@ -149,7 +173,7 @@ export default function HomePage() {
                 alt="Family Learning"
                 width={500}
                 height={400}
-                className="mx-auto"
+                className="mx-auto w-full h-auto"
               />
             </div>
             <div className="order-1 lg:order-2 space-y-6">
@@ -224,7 +248,7 @@ export default function HomePage() {
                 alt="Teacher Creator"
                 width={500}
                 height={400}
-                className="mx-auto"
+                className="mx-auto w-full h-auto"
               />
             </div>
           </div>
@@ -268,7 +292,9 @@ export default function HomePage() {
         onOpenChange={handleAuthOpenChange}
         role={authRole}
         onRoleChange={setAuthRole}
-        onConnect={(role, mode) => handleAuth(role, mode)}
+        onConnect={handleAuth}
+        mode={authMode}
+        onModeChange={setAuthMode}
       />
     </div>
   );

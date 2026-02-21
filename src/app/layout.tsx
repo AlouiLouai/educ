@@ -15,9 +15,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="fr">
       <body>
-        <div className="app-shell">
+        <div className="app-shell flex flex-col min-h-screen">
           <SiteHeader />
-          <main>{children}</main>
+          <main className="flex-1">{children}</main>
           <SiteFooter />
         </div>
       </body>

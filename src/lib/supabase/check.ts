@@ -10,7 +10,6 @@ export function logSupabaseConfig() {
 
   if (ok) {
     const masked = key ? `${key.slice(0, 6)}...${key.slice(-4)}` : "";
-    console.log("[supabase] configured", { url, key: masked });
   } else {
     console.warn("[supabase] missing env vars", {
       NEXT_PUBLIC_SUPABASE_URL: Boolean(url),

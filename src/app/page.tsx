@@ -1,45 +1,112 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
-import { setCookie } from "../components/utils";
+import { createClient } from "../lib/supabase/browser";
 
 export default function HomePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [authOpen, setAuthOpen] = useState(false);
   const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
 
   useEffect(() => {
+    const info = searchParams.get("info");
+    if (info === "account_exists") {
+      alert("Vous avez déjà un compte. Veuillez vous connecter au lieu de vous inscrire.");
+      setAuthMode("signin");
+      setAuthOpen(true);
+      router.replace("/");
+    }
+
+    const error = searchParams.get("error");
+    if (error === "account_not_found") {
+      alert("Aucun compte trouvé avec cet e-mail. Veuillez d'abord vous inscrire.");
+      setAuthMode("signup");
+      setAuthOpen(true);
+      router.replace("/");
+    }
+
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
-      if (detail?.role === "student" || detail?.role === "teacher") {
-        setAuthRole(detail.role);
-      }
+      const role = detail?.role === "student" || detail?.role === "teacher" ? detail.role : "student";
+      setAuthRole(role);
+      setAuthMode("signin");
       setAuthOpen(true);
     };
     window.addEventListener("auth:open", handler);
+
+    // Initial check for ?auth=
+    const auth = searchParams.get("auth");
+    if (auth === "student" || auth === "teacher") {
+      setAuthRole(auth as "student" | "teacher");
+      const modeParam = searchParams.get("mode");
+      if (modeParam === "signin" || modeParam === "signup") {
+        setAuthMode(modeParam);
+      }
+      setAuthOpen(true);
+    }
+
     return () => window.removeEventListener("auth:open", handler);
-  }, []);
+  }, [searchParams]);
 
   const openAuthModal = (type: "student" | "teacher") => {
     setAuthRole(type);
+    setAuthMode("signin");
     setAuthOpen(true);
   };
 
-  const handleAuth = (role: "student" | "teacher", _mode: "signin" | "signup") => {
-    setCookie("edudocs_auth", "1");
-    setCookie("edudocs_role", role);
+  const handleAuth = async (role: "student" | "teacher", mode: "signin" | "signup") => {
+    // 1. Client-side validation
+    const allowedRoles = ["student", "teacher"];
+    if (!allowedRoles.includes(role)) {
+      console.error("[auth] invalid role selected:", role);
+      return;
+    }
+
+    const supabase = createClient();
+    const next = role === "student" ? "/student" : "/teacher";
+    
+    // 2. Pass role as a query parameter in redirectTo
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}&mode=${mode}`;
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: "select_account",
+        },
+        // Only pass role in metadata if mode is signup
+        // This prevents the DB trigger from creating a profile if they just try to signin
+        data: mode === "signup" ? { 
+          role, 
+          signup: "true" 
+        } : {
+          signup: "false"
+        },
+      },
+    });
+
+    if (error) {
+      console.error("[auth] google sign-in failed", error.message);
+      return;
+    }
+
     setAuthOpen(false);
-    router.push(role === "student" ? "/student" : "/teacher");
   };
 
   const handleAuthOpenChange = (open: boolean) => {
     setAuthOpen(open);
+    if (!open) {
+      setAuthMode("signin");
+    }
   };
 
   return (
@@ -121,7 +188,7 @@ export default function HomePage() {
                 alt="Family Learning"
                 width={500}
                 height={400}
-                className="mx-auto"
+                className="mx-auto w-full h-auto"
               />
             </div>
             <div className="order-1 lg:order-2 space-y-6">
@@ -196,7 +263,7 @@ export default function HomePage() {
                 alt="Teacher Creator"
                 width={500}
                 height={400}
-                className="mx-auto"
+                className="mx-auto w-full h-auto"
               />
             </div>
           </div>
@@ -235,15 +302,15 @@ export default function HomePage() {
         </Card>
       </section>
 
-      {authOpen && (
-        <AuthModal
-          open={authOpen}
-          onOpenChange={handleAuthOpenChange}
-          role={authRole}
-          onRoleChange={setAuthRole}
-          onConnect={(role, mode) => handleAuth(role, mode)}
-        />
-      )}
+      <AuthModal
+        open={authOpen}
+        onOpenChange={handleAuthOpenChange}
+        role={authRole}
+        onRoleChange={setAuthRole}
+        onConnect={handleAuth}
+        mode={authMode}
+        onModeChange={setAuthMode}
+      />
     </div>
   );
 }

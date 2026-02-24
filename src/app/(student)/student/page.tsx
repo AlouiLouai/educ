@@ -41,7 +41,9 @@ export default async function StudentDashboard({ searchParams }: PageProps) {
     <div className="container py-8 space-y-10">
       <div className="flex flex-col md:flex-row items-start justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Bonjour, {displayName} 👋</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Bonjour{displayName ? `, ${displayName}` : ""} <span role="img" aria-label="wave">👋</span>
+          </h1>
           <p className="text-muted-foreground text-lg">Prêt pour une nouvelle séance d'apprentissage ?</p>
         </div>
         <div className="flex items-center gap-3">

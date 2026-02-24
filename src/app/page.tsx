@@ -2,14 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { Button, buttonVariants } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { cn } from "../components/utils";
 import AuthModal from "../components/auth/auth-modal";
 import { createClient } from "../lib/supabase/browser";
+import { useAuth } from "../hooks/use-auth";
 
 export default function HomePage() {
+  const { user, profile } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [authOpen, setAuthOpen] = useState(false);
@@ -80,14 +83,9 @@ export default function HomePage() {
       provider: "google",
       options: {
         redirectTo,
-        queryParams: {
-          prompt: "select_account",
-        },
-        // Only pass role in metadata if mode is signup
-        // This prevents the DB trigger from creating a profile if they just try to signin
-        data: mode === "signup" ? { 
-          role, 
-          signup: "true" 
+        queryParams: mode === "signup" ? {
+          role,
+          signup: "true"
         } : {
           signup: "false"
         },
@@ -126,20 +124,31 @@ export default function HomePage() {
               passionnés de Tunisie pour accompagner vos enfants vers l'excellence.
             </p>
             <div className="flex flex-wrap gap-4 motion-safe:animate-fade-up [animation-delay:280ms]">
-              <button
-                type="button"
-                onClick={() => openAuthModal("student")}
-                className={cn(buttonVariants({ size: "md" }), "h-12 px-8 text-lg")}
-              >
-                Explorer le catalogue
-              </button>
-              <button
-                type="button"
-                onClick={() => openAuthModal("teacher")}
-                className={cn(buttonVariants({ variant: "ghost", size: "md" }), "h-12 px-8 text-lg border-black/10")}
-              >
-                Vendre vos documents
-              </button>
+              {user ? (
+                <Link
+                  href={profile?.role === "teacher" ? "/teacher" : "/student"}
+                  className={cn(buttonVariants({ size: "md" }), "h-12 px-8 text-lg shadow-xl shadow-primary/20 ring-1 ring-primary/20")}
+                >
+                  Accéder à mon espace {profile?.role === "teacher" ? "Enseignant" : "Élève"}
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("student")}
+                    className={cn(buttonVariants({ size: "md" }), "h-12 px-8 text-lg")}
+                  >
+                    Explorer le catalogue
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("teacher")}
+                    className={cn(buttonVariants({ variant: "ghost", size: "md" }), "h-12 px-8 text-lg border-black/10")}
+                  >
+                    Vendre vos documents
+                  </button>
+                </>
+              )}
             </div>
           </div>
           <div className="relative">
@@ -283,20 +292,31 @@ export default function HomePage() {
               souhaitant partager son savoir, EduDocs Market est fait pour vous.
             </p>
             <div className="flex flex-wrap justify-center gap-4 pt-4">
-              <button
-                type="button"
-                onClick={() => openAuthModal("student")}
-                className={cn(buttonVariants({ variant: "primary", size: "md" }))}
-              >
-                Accès Parent / Élève
-              </button>
-              <button
-                type="button"
-                onClick={() => openAuthModal("teacher")}
-                className={cn(buttonVariants({ variant: "ghost", size: "md" }))}
-              >
-                Espace Enseignant
-              </button>
+              {user ? (
+                <Link
+                  href={profile?.role === "teacher" ? "/teacher" : "/student"}
+                  className={cn(buttonVariants({ variant: "primary", size: "md" }))}
+                >
+                  Retourner à mon Studio
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("student")}
+                    className={cn(buttonVariants({ variant: "primary", size: "md" }))}
+                  >
+                    Accès Parent / Élève
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("teacher")}
+                    className={cn(buttonVariants({ variant: "ghost", size: "md" }))}
+                  >
+                    Espace Enseignant
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </Card>

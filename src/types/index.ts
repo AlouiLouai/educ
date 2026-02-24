@@ -23,12 +23,6 @@ export interface Document {
   image: string;
 }
 
-export interface PurchasedDocument {
-  title: string;
-  progress: number;
-  subject: string;
-}
-
 export interface AdminStat {
   label: string;
   value: string;

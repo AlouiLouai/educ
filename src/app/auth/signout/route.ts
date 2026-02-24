@@ -23,7 +23,8 @@ export async function POST(request: Request) {
   const { data: { session } } = await supabase.auth.getSession();
 
   if (session) {
-    await supabase.auth.signOut();
+    // local scope keeps the Google session in the browser active
+    await supabase.auth.signOut({ scope: 'local' });
   }
 
   const response = NextResponse.redirect(new URL("/", url.origin), {

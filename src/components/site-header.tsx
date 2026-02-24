@@ -12,7 +12,13 @@ export default function SiteHeader() {
   const { user, profile, connectedUser, loading, signOut } = useAuth();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Handle hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -34,16 +40,17 @@ export default function SiteHeader() {
   const displayName = connectedUser.displayName;
   const secondaryName = connectedUser.fullName || "—";
   const userInitial = connectedUser.initial;
+  const dashboardHref = user ? (profile?.role === "teacher" ? "/teacher" : "/student") : "/";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-black/5 bg-white/70 backdrop-blur-md supports-[backdrop-filter]:bg-white/40 dark:bg-black/70 dark:supports-[backdrop-filter]:bg-black/40">
       <div className="container flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-heading text-xl font-bold tracking-tight">
+        <Link href="/" className="flex items-center gap-2 font-heading text-xl font-bold tracking-tight transition-opacity hover:opacity-80">
           <span className="text-primary">EduDocs</span>
           <span className="text-ink dark:text-white">Market</span>
         </Link>
         <div className="flex items-center gap-4">
-          {!loading || user ? (
+          {!loading ? (
             user ? (
               <div className="relative" ref={dropdownRef}>
                 <button
@@ -92,7 +99,7 @@ export default function SiteHeader() {
                     <div className="my-1 h-px bg-black/5 dark:bg-white/5" />
                     <div className="p-1">
                       <Link
-                        href={profile?.role === "teacher" ? "/teacher" : "/student"}
+                        href={mounted ? dashboardHref : "#"}
                         onClick={() => setIsDropdownOpen(false)}
                         className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium transition hover:bg-black/5 dark:hover:bg-white/5"
                       >

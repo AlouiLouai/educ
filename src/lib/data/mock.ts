@@ -1,4 +1,4 @@
-import { Document, PurchasedDocument, AdminStat, SupportTicket } from "../../types";
+import { Document, AdminStat, SupportTicket } from "../../types";
 
 export const CATEGORIES = ["Tous", "Mathématiques", "Sciences", "Français", "Anglais", "Physique", "Arabe", "Informatique"];
 export const LEVELS = ["Tous", "Primaire", "Secondaire"];
@@ -66,11 +66,6 @@ export const ALL_DOCUMENTS: Document[] = [
     tag: "Mathématiques",
     image: "/illustrations/family-learning.svg",
   },
-];
-
-export const PURCHASED_DOCS: PurchasedDocument[] = [
-  { title: "Révision Trimestre 1", progress: 85, subject: "Maths" },
-  { title: "Vocabulaire Essentiel", progress: 40, subject: "Français" },
 ];
 
 export const ADMIN_STATS: AdminStat[] = [

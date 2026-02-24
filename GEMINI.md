@@ -19,45 +19,46 @@
 - `created_at`: `timestamptz` (Default: `now()`).
 - `updated_at`: `timestamptz` (Default: `now()`).
 
-*Note: RLS is enabled on all public tables.*
+*Note: RLS is enabled on all public tables. Access is restricted to `auth.uid() = id`.*
 
-## 3. Auth & Role Architecture
-- **Provider:** Google OAuth + PKCE Flow.
-- **Role Management:**
-  - Captured during signup via URL params (`?role=teacher` | `student`).
-  - Persisted in `public.profiles` and `auth.users.app_metadata.role`.
-  - **Role Locking:** Once a profile is created, the user is locked to that role. Attempts to sign up with a different role redirect to the existing role's dashboard.
-- **Session Persistence:** 
-  - `@supabase/ssr` handles cookie-based sessions.
-  - Custom cookies `edudocs_role` and `edudocs_profile` are used for fast middleware checks.
+## 3. Advanced Auth Architecture (Senior Grade)
+### A. Identity Verification
+- **Strict Security:** Always use `supabase.auth.getUser()` in Server Components, Middleware, and Auth initialization. Do **not** rely on `getSession()` for identity-sensitive logic as it only reads from local storage/cookies without server verification.
+- **Server Hydration:** `src/app/layout.tsx` fetches the user session and profile on the server. This data is passed to `AuthProvider` as `initialSession` and `initialProfile` to prevent UI flickering (FOUC) and hydration mismatches.
+
+### B. Role Management & Security
+- **Role Locking:** Managed in `src/app/auth/callback/route.ts`. Roles are persisted in both `public.profiles` and `auth.users.app_metadata.role`.
+- **Metadata Source of Truth:** `app_metadata` is signed by Supabase and is the primary source for role-based protection.
+- **Fast Re-entry:** Google OAuth is configured without the `prompt: "select_account"` parameter for seamless re-login. Sign-out uses `{ scope: 'local' }` to keep the Google session active in the browser.
+
+### C. Client State & Sync
+- **AuthProvider (`src/components/providers/auth-provider.tsx`):**
+  - **Realtime Sync:** Subscribes to the specific profile row (`id=eq.userId`) for instant UI updates when data changes in the database.
+  - **Retry Logic:** Implements a 1-second retry for profile fetching to account for eventual consistency during the initial signup redirect.
+- **Data Normalization:** `src/lib/user/connected-user.ts` provides a consistent `ConnectedUser` object, decoupling the UI from raw Supabase types.
 
 ## 4. Security Architecture
 - **Middleware Protection:** 
-  - `src/middleware.ts` guards `/teacher`, `/student`, and `/admin` routes.
-  - Multi-source role verification: `app_metadata`, `user_metadata`, and `edudocs_role` cookie.
-- **Admin Access:** `src/lib/supabase/admin.ts` provides a Service Role client for bypass-RLS operations (use with extreme caution).
-- **Role Enforcement:** Strict whitelisting in `src/app/auth/callback/route.ts`.
+  - `src/lib/supabase/middleware.ts` guards `/teacher`, `/student`, and `/admin` routes.
+  - Uses `getUser()` to ensure the session is authentic.
+- **Hydration Safety:** 
+  - `html` tag in `layout.tsx` uses `suppressHydrationWarning`.
+  - Client components (like `SiteHeader`) use a `mounted` state check for role-specific links to prevent `href` mismatches between server and client.
 
-## 5. Coding Standards
-- **Components:** 
-  - Prefer Server Components for data fetching (`src/lib/supabase/server.ts`).
-  - Use `src/lib/supabase/browser.ts` for client-side interactions.
+## 5. UI/UX Standards
+- **Navigation Logic:**
+  - Logo ("EduDocs Market") always redirects to the home page (`/`).
+  - Home page displays dynamic "Return to Dashboard" buttons for authenticated users.
 - **Loading & Performance:**
-  - **Skeletons:** Every route must have a `loading.tsx` file providing a structural skeleton that matches the final UI.
-  - **Streaming:** Use React `Suspense` for data-heavy components (e.g., lists, tables) to allow the page shell to load immediately.
-  - **CLS Prevention:** Skeletons must strictly match the dimensions of the final rendered content to prevent Cumulative Layout Shift.
-- **Types:** Centralized in `src/types/index.ts`.
-- **Styling:** Use `cn()` utility for Tailwind class merging; keep logic in `src/lib`.
-- **Data:** Mock data for UI development in `src/lib/data/mock.ts`.
+  - **Skeletons:** Every route must have a `loading.tsx`. Skeletons must match the final layout dimensions to prevent Cumulative Layout Shift (CLS).
+  - **Streaming:** Use React `Suspense` for data-heavy components (e.g., `DocumentList`).
 
 ## 6. Directory Map
-- `src/app/(admin)`: Admin-only dashboard.
-- `src/app/(student)`: Student-specific features.
-- `src/app/(teacher)`: Teacher-specific features.
-- `src/app/auth`: Callback, Signout, and Account deletion routes.
-- `src/components/auth`: Multi-role auth modal logic.
-- `src/components/ui`: Atomic Shadcn components.
+- `src/app/(student)/student`: Student dashboard and features.
+- `src/app/(teacher)/teacher`: Teacher studio and management.
+- `src/components/providers`: Centralized context providers (Auth, etc.).
+- `src/lib/supabase`: Server, Browser, and Middleware client factories.
+- `src/lib/user`: User-related utilities and normalization.
 
 ---
-*Generated by Gemini CLI - Updated Feb 21, 2026*
-
+*Generated by Gemini CLI - Updated Feb 23, 2026*

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "../../../components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { Badge } from "../../../components/ui/badge";
@@ -7,17 +8,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { Input } from "../../../components/ui/input";
 import {
   Dialog,
-  DialogClose,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "../../../components/ui/dialog";
 import { cn } from "../../../components/utils";
+import { UploadDocumentForm } from "../../../components/teacher/upload-document-form";
+import { createClient } from "../../../lib/supabase/browser";
+import { useAuth } from "../../../hooks/use-auth";
 
 const stats = [
+  // ... (stats remains the same)
   {
     label: "Ventes totales",
     value: "1,482",
@@ -114,6 +117,37 @@ const revenueData = [
 ];
 
 export default function TeacherDashboard() {
+  const { connectedUser } = useAuth();
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const supabase = createClient();
+
+  async function fetchDocuments() {
+    if (!connectedUser.id) return;
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("documents")
+        .select("*")
+        .eq("teacher_id", connectedUser.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setDocuments(data || []);
+    } catch (err) {
+      console.error("[dashboard] fetch error:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (connectedUser.id) {
+      fetchDocuments();
+    }
+  }, [connectedUser.id]);
+
   return (
     <div className="container relative py-8 space-y-8 pb-16">
       <div className="pointer-events-none absolute -top-24 right-10 h-60 w-60 rounded-full bg-primary/10 blur-3xl" />
@@ -134,7 +168,7 @@ export default function TeacherDashboard() {
               Pilotez vos séries, suivez l’impact et boostez vos revenus avec une vue claire et actionnable.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Dialog>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="shadow-soft">+ Créer un nouveau document</Button>
                 </DialogTrigger>
@@ -146,45 +180,13 @@ export default function TeacherDashboard() {
                       quand vous êtes prêt.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="mt-4 grid gap-4">
-                    <div className="grid gap-2">
-                      <label className="text-xs font-semibold text-muted-foreground">Titre</label>
-                      <Input placeholder="Ex: Série Révisions Maths - 6e" />
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Niveau</label>
-                        <Input placeholder="Ex: 6e année" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Matière</label>
-                        <Input placeholder="Ex: Mathématiques" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Prix</label>
-                        <Input placeholder="Ex: 12 TND" />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-muted-foreground">Format</label>
-                        <Input placeholder="PDF, ZIP, Pack" />
-                      </div>
-                    </div>
-                    <div className="grid gap-2">
-                      <label className="text-xs font-semibold text-muted-foreground">Description</label>
-                      <textarea
-                        className="min-h-[120px] rounded-md border border-black/10 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                        placeholder="Décrivez le contenu, les objectifs et les points forts."
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter className="mt-4">
-                    <DialogClose asChild>
-                      <Button variant="ghost">Annuler</Button>
-                    </DialogClose>
-                    <Button>Créer le brouillon</Button>
-                  </DialogFooter>
+                  <UploadDocumentForm 
+                    onSuccess={() => {
+                      setIsDialogOpen(false);
+                      fetchDocuments();
+                    }}
+                    onCancel={() => setIsDialogOpen(false)}
+                  />
                 </DialogContent>
               </Dialog>
               <Button variant="ghost" className="border border-black/5 bg-white/70">
@@ -320,28 +322,53 @@ export default function TeacherDashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {uploads.map((item) => (
-                  <TableRow key={item.title} className="transition-colors hover:bg-black/5">
-                    <TableCell className="py-4">
-                      <div className="space-y-1">
-                        <p className="font-bold leading-none">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.grade} • Modifié {item.updated}</p>
-                      </div>
-                    </TableCell>
-                    <TableCell>{item.buyers}</TableCell>
-                    <TableCell className="font-medium text-primary">{item.revenue}</TableCell>
-                    <TableCell>
-                      <Badge variant={item.statusKey as any} className="text-[10px]">
-                        {item.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                       </Button>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                      Chargement de vos documents...
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : documents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                      Vous n'avez pas encore de documents. Commencez par en créer un !
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  documents.map((item) => (
+                    <TableRow key={item.id} className="transition-colors hover:bg-black/5">
+                      <TableCell className="py-4">
+                        <div className="space-y-1">
+                          <p className="font-bold leading-none">{item.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.metadata?.grade || "Niveau non spécifié"} • {item.metadata?.subject || "Matière non spécifiée"}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>0</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {item.price ? `${item.price} TND` : "Gratuit"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            item.status === "published" ? "success" : 
+                            item.status === "archived" ? "muted" : "warning"
+                          } 
+                          className="text-[10px]"
+                        >
+                          {item.status === "published" ? "En ligne" : 
+                           item.status === "archived" ? "Archivé" : "Brouillon"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                         </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>

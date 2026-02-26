@@ -1,73 +1,76 @@
-# EduDocs Market | Gemini Spec
+# EduDocs Market | Gemini AI Spec
 
 ## 1. Context & Tech Stack
-- **Framework:** Next.js 15.0.5 (App Router).
+- **Framework:** Next.js 15.1 (App Router, Turbopack).
 - **Backend:** Supabase (Auth, PostgreSQL, RLS, SSR).
 - **Styling:** Tailwind CSS 3.4 + Shadcn UI + Radix UI.
-- **Animations:** Framer Motion.
-- **State Management:** URL-driven state for filtering; Server-first data fetching via Server Components.
+- **Animations:** Framer Motion (PopLayout, Layout transitions).
+- **Notifications:** Sonner (Global Top-Center Toaster).
+- **State Management:** React Server Components (RSC) for data fetching; URL-driven state for filtering.
 - **Type Safety:** TypeScript 5.4.
 
 ## 2. Database Schema (Public)
+
 ### `public.profiles`
-- `id`: `uuid` (Primary Key, Foreign Key to `auth.users.id`).
-- `first_name`: `text` (Nullable).
-- `last_name`: `text` (Nullable).
-- `email`: `text` (Nullable).
-- `role`: `text` (Nullable) - Constraint: `student`, `teacher`, `admin`.
-- `avatar_url`: `text` (Nullable).
-- `created_at`: `timestamptz` (Default: `now()`).
-- `updated_at`: `timestamptz` (Default: `now()`).
+- `id`: `uuid` (PK, FK to `auth.users.id`).
+- `first_name`, `last_name`, `email`, `avatar_url`: `text`.
+- `role`: `text` (`student`, `teacher`, `admin`).
+- `created_at`, `updated_at`: `timestamptz`.
 
-*Note: RLS is enabled on all public tables. Access is restricted to `auth.uid() = id`.*
+### `public.documents`
+- `id`: `uuid` (PK).
+- `teacher_id`: `uuid` (FK to `profiles.id`).
+- `title`, `description`: `text`.
+- `price`: `numeric` (TND).
+- `storage_path`: `text` (Path in `docs` bucket).
+- `file_type`: `text` (MIME type).
+- `file_size`: `bigint`.
+- `status`: `text` (`draft`, `published`, `archived`).
+- `metadata`: `jsonb` (Contains `grade`, `subject`, `original_name`).
+- `created_at`: `timestamptz`.
 
-## 3. Advanced Auth Architecture (Senior Grade)
-### A. Identity Verification
-- **Strict Security:** Always use `supabase.auth.getUser()` in Server Components, Middleware, and Auth initialization. Do **not** rely on `getSession()` for identity-sensitive logic as it only reads from local storage/cookies without server verification.
-- **Server Hydration:** `src/app/layout.tsx` fetches the user session and profile on the server. This data is passed to `AuthProvider` as `initialSession` and `initialProfile` to prevent UI flickering (FOUC) and hydration mismatches.
+*Note: RLS is strictly enabled. `auth.uid() = id` for profiles and `auth.uid() = teacher_id` for document management.*
 
-### B. Role Management & Security
-- **Role Locking:** Managed in `src/app/auth/callback/route.ts`. Roles are persisted in both `public.profiles` and `auth.users.app_metadata.role`.
-- **Metadata Source of Truth:** `app_metadata` is signed by Supabase and is the primary source for role-based protection.
-- **Fast Re-entry:** Google OAuth is configured without the `prompt: "select_account"` parameter for seamless re-login. Sign-out uses `{ scope: 'local' }` to keep the Google session active in the browser.
+## 3. High-Performance Auth Architecture
 
-### C. Client State & Sync
-- **AuthProvider (`src/components/providers/auth-provider.tsx`):**
-  - **Realtime Sync:** Subscribes to the specific profile row (`id=eq.userId`) for instant UI updates when data changes in the database.
-  - **Retry Logic:** Implements a 1-second retry for profile fetching to account for eventual consistency during the initial signup redirect.
-- **Data Normalization:** `src/lib/user/connected-user.ts` provides a consistent `ConnectedUser` object, decoupling the UI from raw Supabase types.
+### A. Identity & Verification
+- **Verified Fetching:** Always use `supabase.auth.getUser()` in Server Components/Middleware. `getSession()` is deprecated for security-sensitive logic.
+- **Parallel Hydration:** `RootLayout` fetches user and profile concurrently using `Promise.all`. The profile fetch leverages RLS (no explicit ID filter required) to minimize request latency.
+- **Request Deduplication:** The Supabase server client is wrapped in `React.cache`, ensuring `getUser()` is only called once per request across Layouts and Pages.
 
-## 4. Security Architecture
-- **Middleware Protection:** 
-  - `src/lib/supabase/middleware.ts` guards `/teacher`, `/student`, and `/admin` routes.
-  - Uses `getUser()` to ensure the session is authentic.
-- **Hydration Safety:** 
-  - `html` tag in `layout.tsx` uses `suppressHydrationWarning`.
-  - Client components (like `SiteHeader`) use a `mounted` state check for role-specific links to prevent `href` mismatches between server and client.
+### B. Intelligent Role Management
+- **Role Locking:** Enforced in `/auth/callback`. Users are bound to the role created during signup.
+- **Persistent Role Hinting:** The `edudocs_role` cookie is **not** cleared on signout. It serves as a UI hint to default the "Sign In" flow to the correct role (Teacher vs Student).
+- **Context-Aware Detection:** `AuthSync` detects the requested role by checking (1) URL Path, (2) `edudocs_role` cookie, then (3) defaulting to `student`.
+
+## 4. Scalable Document Upload System
+
+### A. Concurrency & Queueing
+- **Client-Side Queue:** Implements a strict `CONCURRENCY_LIMIT = 3` for parallel uploads. This prevents browser network saturation and Supabase API rate-limiting for batch uploads (e.g., 50+ files).
+- **Simulated Progress:** individual file progress bars with intelligent simulation during transfer, snapping to 100% upon DB confirmation.
+
+### B. Live Loading (Optimistic UI)
+- **Real-time Injection:** Individual successful uploads trigger an `onItemUploaded` callback.
+- **No-Refresh Updates:** New documents are injected directly into the dashboard state array, appearing instantly behind the modal.
+- **Silent Revalidation:** `router.refresh()` is called in the background after modal closure to sync server-side stats without blocking the UI.
+
+### C. Reliability & UX
+- **Compensating Transactions:** If a database insertion fails after a successful storage upload, the system automatically deletes the orphaned file from the bucket.
+- **Batch Feedback:** Uses `sonner` to display a single, clear toast summarizing the total number of successful uploads once the queue is empty.
+- **Automatic Closure:** The upload modal closes automatically 500ms after a successful batch completion to streamline the workflow.
 
 ## 5. UI/UX Standards
-- **Navigation Logic:**
-  - Logo ("EduDocs Market") always redirects to the home page (`/`).
-  - Home page displays dynamic "Return to Dashboard" buttons for authenticated users.
-- **Loading & Performance:**
-  - **Skeletons:** Every route must have a `loading.tsx`. Skeletons must match the final layout dimensions to prevent Cumulative Layout Shift (CLS).
-  - **Streaming:** Use React `Suspense` for data-heavy components (e.g., `DocumentList`).
+- **Simple & Attractive Dashboard:** Focused "Studio" layout with a 1-column main list and a sidebar for contextual info (Revenue, Pro Tips).
+- **Premium Components:** Uses `3xl` rounded corners, soft shadows (`shadow-soft`), and subtle gradients (`accent-4/30`).
+- **Form UX:** "Nouveau document" modal uses a compact 3-column metadata grid and a slimmed-down drag-and-drop zone to minimize height.
+- **Education Metadata:** Pre-populated dropdowns for Tunisian grades (1ère primaire to Bac) and core subjects (Maths, Physique, etc.).
 
 ## 6. Directory Map
-- `src/app/(student)/student`: Student dashboard and features.
-- `src/app/(teacher)/teacher`: Teacher studio and management.
-- `src/components/providers`: Centralized context providers (Auth, etc.).
-- `src/lib/supabase`: Server, Browser, and Middleware client factories.
-- `src/lib/user`: User-related utilities and normalization.
-
-## 7. Performance & Scalability (Feb 2026)
-- **High-Performance Uploads:**
-  - **Queue System:** Implements a client-side upload queue with a concurrency limit (3 parallel uploads) to prevent network saturation.
-  - **Optimistic UX:** Provides real-time progress bars, drag-and-drop zones, and immediate file validation (size/type) before upload starts.
-  - **Robustness:** Handles individual file failures gracefully without stopping the entire batch.
-- **Database Optimization:**
-  - **RLS Policy Caching:** All RLS policies use `(SELECT auth.uid())` subqueries to cache authentication checks per query, drastically reducing CPU load.
-  - **Indexing:** Foreign keys (e.g., `teacher_id`) are indexed to support performant joins and RLS evaluations at scale (1000+ concurrent users).
+- `src/app/(student)/student`: Student dashboard.
+- `src/app/(teacher)/teacher`: Teacher studio (Server Component for speed).
+- `src/components/teacher`: Upload logic and Studio client components.
+- `src/components/providers`: Auth context and Sonner Toaster.
+- `src/lib/supabase`: Memoized server and browser clients.
 
 ---
 *Generated by Gemini CLI - Updated Feb 25, 2026*

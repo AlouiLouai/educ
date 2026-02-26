@@ -1,7 +1,13 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cache } from "react";
 
-export async function createClient() {
+/**
+ * Expert Pattern: Request-Memoized Supabase Client
+ * Wrapping createClient in React.cache ensures that only one client is 
+ * created per request, deduplicating work across Layout, Page, and Components.
+ */
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -18,10 +24,10 @@ export async function createClient() {
               cookieStore.set(name, value, options);
             });
           } catch {
-            // Ignore when called from Server Components where cookies are read-only.
+            // Safe to ignore in Server Components
           }
         },
       },
     }
   );
-}
+});

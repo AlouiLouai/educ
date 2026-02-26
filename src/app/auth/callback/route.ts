@@ -36,14 +36,19 @@ export async function GET(request: Request) {
 
   const admin = createAdminClient();
 
-  // 1. Fetch existing profile
+  // EXPERT PERFORMANCE: Check profile and existing metadata in parallel if possible
+  // Actually we need the profile to decide the next steps.
   const { data: profile } = await admin
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
-  // 2. ROLE LOCKING LOGIC: If profile exists, user is LOCKED to that role
+  // 2. ROLE LOCKING & SYNC
+  let finalRole = profile?.role || (requestedRole && ALLOWED_ROLES.includes(requestedRole) ? requestedRole : "student");
+
+  const tasks: Promise<any>[] = [];
+
   if (profile) {
     // If they tried to "Signup" with a different role, redirect to signin with their REAL role
     if (mode === "signup" && requestedRole && requestedRole !== profile.role) {
@@ -52,41 +57,43 @@ export async function GET(request: Request) {
       );
     }
     
-    // Ensure the metadata matches the DB role (security sync)
+    // Sync metadata if out of sync (Don't await, fire and forget or handle in background)
     if (user.app_metadata.role !== profile.role) {
-      await admin.auth.admin.updateUserById(user.id, {
+      tasks.push(admin.auth.admin.updateUserById(user.id, {
         app_metadata: { role: profile.role, profile: true }
-      });
+      }));
     }
-  }
+  } else {
+    // 3. Security: Handle Signin for non-existing users
+    if (mode === "signin") {
+      await supabase.auth.signOut();
+      return NextResponse.redirect(new URL(`/?error=account_not_found&auth=${requestedRole || "student"}&mode=signup`, url.origin));
+    }
 
-  // 3. Security: Handle Signin for non-existing users
-  if (mode === "signin" && !profile) {
-    await supabase.auth.signOut();
-    return NextResponse.redirect(new URL(`/?error=account_not_found&auth=${requestedRole || "student"}&mode=signup`, url.origin));
-  }
-
-  // 4. Handle New Signup
-  const finalRole = profile?.role || (requestedRole && ALLOWED_ROLES.includes(requestedRole) ? requestedRole : "student");
-
-  if (!profile) {
+    // 4. Handle New Signup
     const meta = (user.user_metadata || {}) as Record<string, any>;
     const fullName = meta.full_name || meta.name || "";
     const givenName = meta.given_name || fullName.split(" ")[0] || "";
     const familyName = meta.family_name || (fullName.includes(" ") ? fullName.slice(fullName.indexOf(" ") + 1) : "");
 
-    await admin.from("profiles").upsert({
-      id: user.id,
-      first_name: givenName || null,
-      last_name: familyName || null,
-      email: user.email,
-      role: finalRole,
-      avatar_url: meta.avatar_url || meta.picture || null,
-    });
+    tasks.push(
+      admin.from("profiles").upsert({
+        id: user.id,
+        first_name: givenName || null,
+        last_name: familyName || null,
+        email: user.email,
+        role: finalRole,
+        avatar_url: meta.avatar_url || meta.picture || null,
+      }),
+      admin.auth.admin.updateUserById(user.id, {
+        app_metadata: { role: finalRole, profile: true }
+      })
+    );
+  }
 
-    await admin.auth.admin.updateUserById(user.id, {
-      app_metadata: { role: finalRole, profile: true }
-    });
+  // Await critical tasks before redirecting to ensure consistency
+  if (tasks.length > 0) {
+    await Promise.all(tasks);
   }
 
   // 5. Final Redirect

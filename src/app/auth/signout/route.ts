@@ -19,10 +19,10 @@ export async function POST(request: Request) {
     }
   );
 
-  // Check if session exists
-  const { data: { session } } = await supabase.auth.getSession();
+  // Check if session exists securely
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (session) {
+  if (user) {
     // local scope keeps the Google session in the browser active
     await supabase.auth.signOut({ scope: 'local' });
   }
@@ -31,9 +31,10 @@ export async function POST(request: Request) {
     status: 302,
   });
 
-  // Securely clear all helper cookies
+  // Securely clear authentication and profile state cookies.
+  // We DELIBERATELY do NOT clear 'edudocs_role' here.
+  // It stays as a "role hint" for the UI to provide a better UX on next sign-in.
   const clearOptions = { path: "/", maxAge: 0 };
-  response.cookies.set("edudocs_role", "", clearOptions);
   response.cookies.set("edudocs_profile", "", clearOptions);
   response.cookies.set("edudocs_auth", "", clearOptions);
 

@@ -16,13 +16,25 @@ const nextConfig = {
     ],
   },
   experimental: {
-    webpackBuildWorker: true,
     serverSourceMaps: false,
     optimizePackageImports: [
       "lucide-react",
       "framer-motion",
       "@radix-ui/react-dialog",
+      "@radix-ui/react-slot",
+      "class-variance-authority",
+      "clsx",
+      "tailwind-merge",
+      "zod",
     ],
+  },
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
+      },
+    },
   },
 };
 

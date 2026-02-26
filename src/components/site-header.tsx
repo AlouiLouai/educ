@@ -31,7 +31,7 @@ export default function SiteHeader() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleAuthClick = (role: "student" | "teacher" = "student") => {
+  const handleAuthClick = (role?: "student" | "teacher") => {
     window.dispatchEvent(
       new CustomEvent("auth:open", { detail: { role } })
     );

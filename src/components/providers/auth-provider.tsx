@@ -107,22 +107,28 @@ export function AuthProvider({ children, initialSession, initialProfile }: AuthP
     // Initialize subscription if user exists
     if (user) setupProfileSubscription(user.id);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, _session) => {
       if (!mounted) return;
       
-      const newUser = session?.user ?? null;
-      
-      // Handle session changes (login, logout, token refresh)
-      if (newUser) {
-        if (newUser.id !== user?.id) {
-          setUser(newUser);
-          setupProfileSubscription(newUser.id);
-          await fetchProfile(newUser.id);
-        }
-      } else if (event === 'SIGNED_OUT') {
+      // For sign out, we clear state immediately
+      if (event === 'SIGNED_OUT') {
         if (profileSubscription) profileSubscription.unsubscribe();
         setUser(null);
         setProfile(null);
+        setLoading(false);
+        return;
+      }
+
+      // For all other events (SIGNED_IN, TOKEN_REFRESHED, etc.), 
+      // we verify the user with the server to ensure security and silence warnings.
+      const { data: { user: verifiedUser } } = await supabase.auth.getUser();
+      
+      if (verifiedUser) {
+        if (verifiedUser.id !== user?.id) {
+          setUser(verifiedUser);
+          setupProfileSubscription(verifiedUser.id);
+          await fetchProfile(verifiedUser.id);
+        }
       }
       
       setLoading(false);

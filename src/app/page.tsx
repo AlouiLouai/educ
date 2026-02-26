@@ -1,114 +1,21 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Button, buttonVariants } from "../components/ui/button";
-import { Card, CardContent } from "../components/ui/card";
+import { buttonVariants } from "../components/ui/button";
+import { Card } from "../components/ui/card";
 import { cn } from "../components/utils";
-import AuthModal from "../components/auth/auth-modal";
-import { createClient } from "../lib/supabase/browser";
-import { useAuth } from "../hooks/use-auth";
+import HeroActions from "../components/home/hero-actions";
+import AuthSync from "../components/home/auth-sync";
 
+/**
+ * Server Component Version of HomePage.
+ * This ensures the page is pre-rendered on the server as pure HTML,
+ * making it significantly faster and SEO friendly.
+ */
 export default function HomePage() {
-  const { user, profile } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authRole, setAuthRole] = useState<"student" | "teacher">("student");
-  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-
-  useEffect(() => {
-    const info = searchParams.get("info");
-    if (info === "account_exists") {
-      alert("Vous avez déjà un compte. Veuillez vous connecter au lieu de vous inscrire.");
-      setAuthMode("signin");
-      setAuthOpen(true);
-      router.replace("/");
-    }
-
-    const error = searchParams.get("error");
-    if (error === "account_not_found") {
-      alert("Aucun compte trouvé avec cet e-mail. Veuillez d'abord vous inscrire.");
-      setAuthMode("signup");
-      setAuthOpen(true);
-      router.replace("/");
-    }
-
-    const handler = (event: Event) => {
-      const detail = (event as CustomEvent<{ role?: "student" | "teacher" }>).detail;
-      const role = detail?.role === "student" || detail?.role === "teacher" ? detail.role : "student";
-      setAuthRole(role);
-      setAuthMode("signin");
-      setAuthOpen(true);
-    };
-    window.addEventListener("auth:open", handler);
-
-    // Initial check for ?auth=
-    const auth = searchParams.get("auth");
-    if (auth === "student" || auth === "teacher") {
-      setAuthRole(auth as "student" | "teacher");
-      const modeParam = searchParams.get("mode");
-      if (modeParam === "signin" || modeParam === "signup") {
-        setAuthMode(modeParam);
-      }
-      setAuthOpen(true);
-    }
-
-    return () => window.removeEventListener("auth:open", handler);
-  }, [searchParams]);
-
-  const openAuthModal = (type: "student" | "teacher") => {
-    setAuthRole(type);
-    setAuthMode("signin");
-    setAuthOpen(true);
-  };
-
-  const handleAuth = async (role: "student" | "teacher", mode: "signin" | "signup") => {
-    // 1. Client-side validation
-    const allowedRoles = ["student", "teacher"];
-    if (!allowedRoles.includes(role)) {
-      console.error("[auth] invalid role selected:", role);
-      return;
-    }
-
-    const supabase = createClient();
-    const next = role === "student" ? "/student" : "/teacher";
-    
-    // 2. Pass role as a query parameter in redirectTo
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}&role=${role}&mode=${mode}`;
-
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-        queryParams: mode === "signup" ? {
-          role,
-          signup: "true"
-        } : {
-          signup: "false"
-        },
-      },
-    });
-
-    if (error) {
-      console.error("[auth] google sign-in failed", error.message);
-      return;
-    }
-
-    setAuthOpen(false);
-  };
-
-  const handleAuthOpenChange = (open: boolean) => {
-    setAuthOpen(open);
-    if (!open) {
-      setAuthMode("signin");
-    }
-  };
-
   return (
     <div className="flex flex-col">
+      <AuthSync />
+
       {/* Hero Section */}
       <section className="relative overflow-hidden py-20 lg:py-32">
         <div className="container relative z-10 grid gap-12 lg:grid-cols-2 lg:items-center">
@@ -123,32 +30,8 @@ export default function HomePage() {
               Accédez aux meilleures séries, cours et documents pédagogiques créés par les enseignants
               passionnés de Tunisie pour accompagner vos enfants vers l'excellence.
             </p>
-            <div className="flex flex-wrap gap-4 motion-safe:animate-fade-up [animation-delay:280ms]">
-              {user ? (
-                <Link
-                  href={profile?.role === "teacher" ? "/teacher" : "/student"}
-                  className={cn(buttonVariants({ size: "md" }), "h-12 px-8 text-lg shadow-xl shadow-primary/20 ring-1 ring-primary/20")}
-                >
-                  Accéder à mon espace {profile?.role === "teacher" ? "Enseignant" : "Élève"}
-                </Link>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("student")}
-                    className={cn(buttonVariants({ size: "md" }), "h-12 px-8 text-lg")}
-                  >
-                    Explorer le catalogue
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("teacher")}
-                    className={cn(buttonVariants({ variant: "ghost", size: "md" }), "h-12 px-8 text-lg border-black/10")}
-                  >
-                    Vendre vos documents
-                  </button>
-                </>
-              )}
+            <div className="motion-safe:animate-fade-up [animation-delay:280ms]">
+              <HeroActions />
             </div>
           </div>
           <div className="relative">
@@ -162,7 +45,6 @@ export default function HomePage() {
                 priority
               />
             </div>
-            {/* Decorative elements removed for simpler look */}
           </div>
         </div>
       </section>
@@ -223,13 +105,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                onClick={() => openAuthModal("student")}
-                className={cn(buttonVariants({ variant: "secondary" }), "mt-4")}
-              >
-                Commencer maintenant
-              </button>
+              <HeroActions />
             </div>
           </div>
 
@@ -258,13 +134,7 @@ export default function HomePage() {
                   </li>
                 ))}
               </ul>
-              <button
-                type="button"
-                onClick={() => openAuthModal("teacher")}
-                className={cn(buttonVariants({ variant: "primary" }), "mt-4")}
-              >
-                Devenir créateur EduDocs
-              </button>
+              <HeroActions />
             </div>
             <div className="relative">
               <Image
@@ -282,7 +152,6 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="container py-20">
         <Card className="relative overflow-hidden border border-black/10 bg-white p-8 text-center text-ink shadow-soft lg:p-16">
-          
           <div className="relative z-10 mx-auto max-w-2xl space-y-6 motion-safe:animate-fade-up">
             <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
               Prêt à transformer l'apprentissage ?
@@ -291,46 +160,12 @@ export default function HomePage() {
               Que vous soyez un parent soucieux de la réussite de son enfant ou un enseignant 
               souhaitant partager son savoir, EduDocs Market est fait pour vous.
             </p>
-            <div className="flex flex-wrap justify-center gap-4 pt-4">
-              {user ? (
-                <Link
-                  href={profile?.role === "teacher" ? "/teacher" : "/student"}
-                  className={cn(buttonVariants({ variant: "primary", size: "md" }))}
-                >
-                  Retourner à mon Studio
-                </Link>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("student")}
-                    className={cn(buttonVariants({ variant: "primary", size: "md" }))}
-                  >
-                    Accès Parent / Élève
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => openAuthModal("teacher")}
-                    className={cn(buttonVariants({ variant: "ghost", size: "md" }))}
-                  >
-                    Espace Enseignant
-                  </button>
-                </>
-              )}
+            <div className="flex justify-center pt-4">
+              <HeroActions />
             </div>
           </div>
         </Card>
       </section>
-
-      <AuthModal
-        open={authOpen}
-        onOpenChange={handleAuthOpenChange}
-        role={authRole}
-        onRoleChange={setAuthRole}
-        onConnect={handleAuth}
-        mode={authMode}
-        onModeChange={setAuthMode}
-      />
     </div>
   );
 }

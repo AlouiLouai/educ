@@ -1,25 +1,10 @@
 import "./globals.css";
-import type { ReactNode } from "react";
-import { Manrope, Space_Grotesk } from "next/font/google";
+import { type ReactNode } from "react";
 import SiteHeader from "../components/site-header";
 import SiteFooter from "../components/site-footer";
-import { logSupabaseConfig } from "../lib/supabase/check";
 import { AuthProvider } from "../components/providers/auth-provider";
 import { createClient } from "../lib/supabase/server";
-
-const manrope = Manrope({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-manrope",
-  display: "swap",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-space-grotesk",
-  display: "swap",
-});
+import { Toaster } from "sonner";
 
 export const metadata = {
   title: "EduDocs Market — Documents enseignants pour familles",
@@ -28,30 +13,39 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
-  logSupabaseConfig();
-  
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  
+  let user = null;
   let profile = null;
-  if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-    profile = data;
+
+  try {
+    const supabase = await createClient();
+    
+    /**
+     * EXPERT PERFORMANCE PATTERN: Parallel Auth Hydration
+     * We trigger both getUser() and the profile fetch in parallel.
+     * The profile fetch relies on RLS (auth.uid() = id) to automatically 
+     * return the correct row based on the session cookies.
+     */
+    const [userRes, profileRes] = await Promise.all([
+      supabase.auth.getUser(),
+      supabase.from("profiles").select("*").maybeSingle()
+    ]);
+
+    user = userRes.data.user;
+    profile = profileRes.data;
+  } catch (error) {
+    console.error("[layout] Hydration error:", error);
   }
 
   return (
-    <html lang="fr" className={`${manrope.variable} ${spaceGrotesk.variable}`} suppressHydrationWarning>
-      <body>
+    <html lang="fr" suppressHydrationWarning>
+      <body className="antialiased font-sans" style={{ fontFamily: 'var(--font-manrope), system-ui, sans-serif' }}>
         <AuthProvider initialSession={user ? ({ user } as any) : null} initialProfile={profile}>
           <div className="app-shell flex flex-col min-h-screen">
             <SiteHeader />
             <main className="flex-1">{children}</main>
             <SiteFooter />
           </div>
+          <Toaster position="top-center" richColors closeButton />
         </AuthProvider>
       </body>
     </html>

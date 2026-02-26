@@ -44,7 +44,7 @@ export default async function StudentDashboard({ searchParams }: PageProps) {
           <h1 className="text-3xl font-bold tracking-tight">
             Bonjour{displayName ? `, ${displayName}` : ""} <span role="img" aria-label="wave">👋</span>
           </h1>
-          <p className="text-muted-foreground text-lg">Prêt pour une nouvelle séance d'apprentissage ?</p>
+          <p className="text-muted-foreground text-lg">Prêt pour une nouvelle séance d&apos;apprentissage ?</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
